@@ -109,6 +109,61 @@ func resourceGithubRepository() *schema.Resource {
 				Optional: true,
 				Default:  false,
 			},
+			"pages": {
+				Type:     schema.TypeList,
+				MaxItems: 1,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"source": {
+							Type:     schema.TypeList,
+							MaxItems: 1,
+							Required: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"branch": {
+										Type:     schema.TypeString,
+										Required: true,
+										ValidateFunc: validation.StringInSlice([]string{
+											"master",
+											"gh-pages",
+										}, false),
+									},
+									"path": {
+										Type:     schema.TypeString,
+										Optional: true,
+										Default:  "/",
+										ValidateFunc: validation.StringInSlice([]string{
+											"/",
+											"/docs",
+										}, false),
+									},
+								},
+							},
+						},
+						"cname": {
+							Type:     schema.TypeString,
+							Optional: true,
+						},
+						"custom_404": {
+							Type:     schema.TypeBool,
+							Computed: true,
+						},
+						"html_url": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"status": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"url": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
+			},
 			"topics": {
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -117,7 +172,6 @@ func resourceGithubRepository() *schema.Resource {
 					ValidateFunc: validation.StringMatch(regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`), "must include only lowercase alphanumeric characters or hyphens and cannot start with a hyphen"),
 				},
 			},
-
 			"full_name": {
 				Type:     schema.TypeString,
 				Computed: true,
@@ -261,6 +315,14 @@ func resourceGithubRepositoryCreate(d *schema.ResourceData, meta interface{}) er
 		}
 	}
 
+	pages := expandPages(d.Get("pages").([]interface{}))
+	if pages != nil {
+		_, _, err := client.Repositories.EnablePages(ctx, orgName, repoName, pages)
+		if err != nil {
+			return err
+		}
+	}
+
 	return resourceGithubRepositoryUpdate(d, meta)
 }
 
@@ -321,6 +383,15 @@ func resourceGithubRepositoryRead(d *schema.ResourceData, meta interface{}) erro
 	d.Set("archived", repo.GetArchived())
 	d.Set("topics", flattenStringList(repo.Topics))
 	d.Set("node_id", repo.GetNodeID())
+	if repo.GetHasPages() {
+		pages, _, err := client.Repositories.GetPagesInfo(ctx, orgName, repoName)
+		if err != nil {
+			return err
+		}
+		if err := d.Set("pages", flattenPages(pages)); err != nil {
+			return fmt.Errorf("error setting pages: %w", err)
+		}
+	}
 
 	if repo.TemplateRepository != nil {
 		d.Set("template", []interface{}{
@@ -365,6 +436,21 @@ func resourceGithubRepositoryUpdate(d *schema.ResourceData, meta interface{}) er
 	}
 	d.SetId(*repo.Name)
 
+	if d.HasChange("pages") && !d.IsNewResource() {
+		opts := expandPagesUpdate(d.Get("pages").([]interface{}))
+		if opts != nil {
+			_, err := client.Repositories.UpdatePages(ctx, orgName, repoName, opts)
+			if err != nil {
+				return err
+			}
+		} else {
+			_, err := client.Repositories.DisablePages(ctx, orgName, repoName)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	if d.HasChange("topics") {
 		topics := repoReq.Topics
 		_, _, err = client.Repositories.ReplaceAllTopics(ctx, orgName, *repo.Name, topics)
@@ -391,4 +477,62 @@ func resourceGithubRepositoryDelete(d *schema.ResourceData, meta interface{}) er
 	_, err = client.Repositories.Delete(ctx, orgName, repoName)
 
 	return err
+}
+
+func expandPages(input []interface{}) *github.Pages {
+	if len(input) == 0 || input[0] == nil {
+		return nil
+	}
+	pages := input[0].(map[string]interface{})
+	pagesSource := pages["source"].([]interface{})[0].(map[string]interface{})
+	source := &github.PagesSource{}
+	source.Branch = github.String(pagesSource["branch"].(string))
+	if v, ok := pagesSource["path"].(string); ok {
+		if v != "" && v != "/" {
+			source.Path = github.String(v)
+		}
+	}
+	return &github.Pages{Source: source}
+}
+
+func expandPagesUpdate(input []interface{}) *github.PagesUpdate {
+	if len(input) == 0 || input[0] == nil {
+		return nil
+	}
+
+	pages := input[0].(map[string]interface{})
+	update := &github.PagesUpdate{}
+	if v, ok := pages["cname"].(string); ok && v != "" {
+		update.CNAME = github.String(v)
+	}
+	pagesSource := pages["source"].([]interface{})[0].(map[string]interface{})
+	source := pagesSource["branch"].(string)
+	if v, ok := pagesSource["path"].(string); ok {
+		if v != "" && v != "/" {
+			source += fmt.Sprintf(" %s", v)
+		}
+	}
+	update.Source = github.String(source)
+
+	return update
+}
+
+func flattenPages(pages *github.Pages) []interface{} {
+	if pages == nil {
+		return []interface{}{}
+	}
+
+	sourceMap := make(map[string]interface{})
+	sourceMap["branch"] = pages.GetSource().GetBranch()
+	sourceMap["path"] = pages.GetSource().GetPath()
+
+	pagesMap := make(map[string]interface{})
+	pagesMap["source"] = []interface{}{sourceMap}
+	pagesMap["url"] = pages.GetURL()
+	pagesMap["status"] = pages.GetStatus()
+	pagesMap["cname"] = pages.GetCNAME()
+	pagesMap["custom_404"] = pages.GetCustom404()
+	pagesMap["html_url"] = pages.GetHTMLURL()
+
+	return []interface{}{pagesMap}
 }

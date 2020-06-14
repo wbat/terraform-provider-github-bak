@@ -29,6 +29,24 @@ resource "github_repository" "example" {
 }
 ```
 
+## Example Usage with Github Pages Enabled
+
+```hcl
+resource "github_repository" "example" {
+  name        = "example"
+  description = "My awesome codebase"
+
+  private = false
+
+  pages {
+    source {
+      branch = "master"
+      path   = "/docs"
+    }
+  }
+}
+```
+
 ## Argument Reference
 
 The following arguments are supported:
@@ -74,9 +92,28 @@ initial repository creation and create the target branch inside of the repositor
 
 * `archived` - (Optional) Specifies if the repository should be archived. Defaults to `false`. **NOTE** Currently, the API does not support unarchiving.
 
+* `pages` - (Optional) The repository's Github Pages configuration. See [Github Pages Configuration](#github-pages-configuration) below for details.
+
 * `topics` - (Optional) The list of topics of the repository.
 
 * `template` - (Optional) Use a template repository to create this resource. See [Template Repositories](#template-repositories) below for details.
+
+### Github Pages Configuration 
+-> **NOTE:** Github Pages is available in `public` repositories with Github Free and Github Free for organizations, and in `public` and `private` repositories with Github Pro, Github Team, Github Enterprise Cloud, and Github Enterprise Server. 
+
+The `pages` block supports the following:
+
+* `source` - (Required) The source branch and directory for the rendered Pages site. See [Github Pages Source](#github-pages-source) below for details.
+
+* `cname` - (Optional) The custom domain for the repository. This can only be set after the repository has been created.
+
+#### Github Pages Source ####
+
+The `source` block supports the following:
+
+* `branch` - (Required) The repository branch used to publish the site's source files. Can be `master` or `gh-pages`.
+
+* `path` - (Optional) The repository directory from which the site publishes. Can be `/` or `/docs`. (Default: `/`). 
 
 ### Template Repositories
 
@@ -101,6 +138,11 @@ The following additional attributes are exported:
 
 * `svn_url` - URL that can be provided to `svn checkout` to check out the repository via GitHub's Subversion protocol emulation.
 
+* `pages` - The block consisting of the repository's Github Pages configuration with the following additional attributes:
+ * `custom_404` - Whether the rendered Github Pages site has a custom 404 page.
+ * `html_url` - The absolute URL (including scheme) of the rendered Github Pages site e.g. `https://username.github.io`.
+ * `status` - The Github Pages site's build status e.g. `building` or `built`.
+ * `url` - The repository URL of the rendered Github Pages site e.g. `https://api.github.com/repos/test-owner/test-repo/pages`
 
 ## Import
 

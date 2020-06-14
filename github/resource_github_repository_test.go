@@ -53,7 +53,7 @@ func testSweepRepositories(region string) error {
 func TestAccGithubRepository_basic(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -118,7 +118,7 @@ func TestAccGithubRepository_basic(t *testing.T) {
 func TestAccGithubRepository_archive(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -162,7 +162,7 @@ func TestAccGithubRepository_archive(t *testing.T) {
 func TestAccGithubRepository_archiveUpdate(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -220,7 +220,7 @@ func TestAccGithubRepository_archiveUpdate(t *testing.T) {
 }
 
 func TestAccGithubRepository_hasProjects(t *testing.T) {
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -246,7 +246,7 @@ func TestAccGithubRepository_hasProjects(t *testing.T) {
 func TestAccGithubRepository_defaultBranch(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -316,7 +316,7 @@ func TestAccGithubRepository_defaultBranch(t *testing.T) {
 func TestAccGithubRepository_templates(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -363,7 +363,7 @@ func TestAccGithubRepository_templates(t *testing.T) {
 func TestAccGithubRepository_topics(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 	name := fmt.Sprintf("tf-acc-test-%s", randString)
 	description := fmt.Sprintf("Terraform acceptance tests %s", randString)
@@ -454,7 +454,7 @@ func TestAccGithubRepository_topics(t *testing.T) {
 func TestAccGithubRepository_createFromTemplate(t *testing.T) {
 	var repo github.Repository
 
-	rn := "github_repository.foo"
+	rn := "github_repository.test"
 	randString := acctest.RandStringFromCharSet(10, acctest.CharSetAlphaNum)
 
 	resource.ParallelTest(t, resource.TestCase{
@@ -467,6 +467,170 @@ func TestAccGithubRepository_createFromTemplate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckGithubRepositoryExists(rn, &repo),
 					testAccCheckGithubRepositoryTemplateRepoAttribute(rn, &repo),
+				),
+			},
+			{
+				ResourceName:      rn,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"auto_init",
+				},
+			},
+		},
+	})
+}
+
+func TestAccGithubRepository_pages(t *testing.T) {
+	rn := "github_repository.test"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	var repo github.Repository
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckGithubRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGithubRepositoryPagesBasicConfig(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "master"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/"),
+				),
+			},
+			{
+				ResourceName:      rn,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"auto_init",
+				},
+			},
+		},
+	})
+}
+
+func TestAccGithubRepository_pagesUpdateMasterBranch(t *testing.T) {
+	rn := "github_repository.test"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	var repo github.Repository
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckGithubRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGithubRepositoryPagesBasicConfig(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryPagesUpdateConfig(rName, "master", "/", "tfblog.com"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "master"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/"),
+					resource.TestCheckResourceAttr(rn, "pages.0.cname", "tfblog.com"),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryPagesUpdateConfig(rName, "master", "/docs", ""),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "master"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/docs"),
+					resource.TestCheckResourceAttr(rn, "pages.0.cname", ""),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryPagesUpdateConfig(rName, "master", "/docs", "tfblog.com"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "master"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/docs"),
+					resource.TestCheckResourceAttr(rn, "pages.0.cname", "tfblog.com"),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryConfig(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "0"),
+				),
+			},
+			{
+				ResourceName:      rn,
+				ImportState:       true,
+				ImportStateVerify: true,
+				ImportStateVerifyIgnore: []string{
+					"auto_init",
+				},
+			},
+		},
+	})
+}
+
+func TestAccGithubRepository_pagesUpdateGHPagesBranch(t *testing.T) {
+	rn := "github_repository.test"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+	var repo github.Repository
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckGithubRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccGithubRepositoryPagesBasicConfig(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+				),
+			},
+			{
+				PreConfig: func() {
+					if err := testAccCreateRepositoryBranch("gh-pages", rName); err != nil {
+						panic(err.Error())
+					}
+				},
+				Config: testAccGithubRepositoryPagesUpdateConfig(rName, "gh-pages", "/", "tf-gh-blog.com"),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "gh-pages"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/"),
+					resource.TestCheckResourceAttr(rn, "pages.0.cname", "tf-gh-blog.com"),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryPagesUpdateConfig(rName, "gh-pages", "/", ""),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.#", "1"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.branch", "gh-pages"),
+					resource.TestCheckResourceAttr(rn, "pages.0.source.0.path", "/"),
+					resource.TestCheckResourceAttr(rn, "pages.0.cname", ""),
+				),
+			},
+			{
+				Config: testAccGithubRepositoryConfig(rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckGithubRepositoryExists(rn, &repo),
+					resource.TestCheckResourceAttr(rn, "pages.#", "0"),
 				),
 			},
 			{
@@ -708,7 +872,7 @@ func testAccCreateRepositoryBranch(branch, repository string) error {
 
 func testAccGithubRepositoryConfig(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -731,7 +895,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryConfigHasProjects(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   has_projects = true
 }
@@ -740,7 +904,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryUpdateConfig(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Updated Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -762,7 +926,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryArchivedConfig(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -784,7 +948,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryConfigDefaultBranch(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -807,7 +971,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryUpdateConfigDefaultBranch(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Updated Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -830,7 +994,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryConfigTemplates(randString string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -858,7 +1022,7 @@ func testAccGithubRepositoryCreateFromTemplate(randString string) string {
 	repository := os.Getenv("GITHUB_TEMPLATE_REPOSITORY")
 
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name         = "tf-acc-test-%s"
   description  = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -885,7 +1049,7 @@ resource "github_repository" "foo" {
 
 func testAccGithubRepositoryConfigTopics(randString string, topicList string) string {
 	return fmt.Sprintf(`
-resource "github_repository" "foo" {
+resource "github_repository" "test" {
   name = "tf-acc-test-%s"
   description = "Terraform acceptance tests %s"
   homepage_url = "http://example.com/"
@@ -897,4 +1061,59 @@ resource "github_repository" "foo" {
   topics = [%s]
 }
 `, randString, randString, topicList)
+}
+
+func testAccGithubRepositoryPagesBasicConfig(randString string) string {
+	return fmt.Sprintf(`
+resource "github_repository" "test" {
+	name         = "%[1]s"
+	description  = "Terraform acceptance tests %[1]s"
+	homepage_url = "http://example.com/"
+	
+	# So that acceptance tests can be run in a github organization
+	# with no billing
+	private = false
+	
+	auto_init          = true
+	pages {
+		source {
+			branch = "master"
+		}
+	}
+  }
+  `, randString)
+}
+
+func testAccGithubRepositoryPagesUpdateConfig(randString, branch, path, cname string) string {
+	filename := "index.html"
+	if path != "/" {
+		filename = fmt.Sprintf("%s/%s", strings.TrimPrefix(path, "/"), filename)
+	}
+
+	return fmt.Sprintf(`
+resource "github_repository_file" "test" {
+	repository = github_repository.test.name
+	file       = "%[1]s"
+	content    = "<html><head><title>Terraform Acceptance test %[2]s</title></head></html>"
+}
+
+resource "github_repository" "test" {
+	name         = "%[2]s"
+	description  = "Terraform acceptance tests %[2]s"
+	homepage_url = "http://example.com/"
+	
+	# So that acceptance tests can be run in a github organization
+	# with no billing
+	private = false
+	
+	auto_init      = true
+	pages {
+		source {
+			branch = "%s"
+			path   = "%s"
+		}
+		cname = "%s"
+	}
+  }
+  `, filename, randString, branch, path, cname)
 }

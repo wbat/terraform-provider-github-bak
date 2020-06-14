@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
 )
 
@@ -72,6 +73,31 @@ func TestAccGithubRepositoryDataSource_name_existing(t *testing.T) {
 	})
 }
 
+func TestAccGithubRepositoryDataSource_pages(t *testing.T) {
+	rn := "github_repository.test"
+	dataSource := "data.github_repository.test"
+	rName := acctest.RandomWithPrefix("tf-acc-test")
+
+	resource.ParallelTest(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+		},
+		Providers: testAccProviders,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccCheckGithubRepositoryDataSourceConfig_pages(rName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttrPair(rn, "pages.#", dataSource, "pages.#"),
+					resource.TestCheckResourceAttrPair(rn, "pages.0.source.#", dataSource, "pages.0.source.#"),
+					resource.TestCheckResourceAttrPair(rn, "pages.0.source.0.branch", dataSource, "pages.0.source.0.branch"),
+					resource.TestCheckResourceAttrPair(rn, "pages.0.source.0.path", dataSource, "pages.0.source.0.path"),
+					resource.TestCheckResourceAttrPair(rn, "pages.0.cname", dataSource, "pages.0.cname"),
+				),
+			},
+		},
+	})
+}
+
 func testRepoCheck() resource.TestCheckFunc {
 	return resource.ComposeAggregateTestCheckFunc(
 		resource.TestCheckResourceAttr("data.github_repository.test", "id", "test-repo"),
@@ -96,6 +122,7 @@ func testRepoCheck() resource.TestCheckFunc {
 		resource.TestCheckResourceAttr("data.github_repository.test", "topics.#", "2"),
 		resource.TestCheckResourceAttr("data.github_repository.test", "topics.0", "second-test-topic"),
 		resource.TestCheckResourceAttr("data.github_repository.test", "topics.1", "test-topic"),
+		resource.TestCheckResourceAttr("data.github_repository.test", "pages.#", "0"),
 	)
 }
 
@@ -112,5 +139,31 @@ func testAccCheckGithubRepositoryDataSourceConfig_name(name string) string {
 data "github_repository" "test" {
   name = "%s"
 }
+`, name)
+}
+
+func testAccCheckGithubRepositoryDataSourceConfig_pages(name string) string {
+	return fmt.Sprintf(`
+data "github_repository" "test" {
+  name = github_repository.test.name
+}
+
+resource "github_repository" "test" {
+	name         = "%[1]s"
+	description  = "Terraform acceptance tests %[1]s"
+	homepage_url = "http://example.com/"
+	
+	# So that acceptance tests can be run in a github organization
+	# with no billing
+	private = false
+	
+	auto_init    = true
+	pages {
+		source {
+			branch = "master"
+		}
+	}
+  }
+
 `, name)
 }
